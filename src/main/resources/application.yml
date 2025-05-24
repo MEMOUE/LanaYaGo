@@ -1,3 +1,65 @@
 spring:
   application:
     name: LanaYaGo
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/lanayago_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: true
+        use_sql_comments: true
+
+  # Configuration pour les fichiers
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+# Configuration des API externes
+google:
+  maps:
+    api-key: ${GOOGLE_MAPS_API_KEY:}
+
+# Configuration JWT
+jwt:
+  secret: ${JWT_SECRET:lanayago-super-secret-key-2024-very-long-and-secure}
+  expiration: 86400000 # 24 heures
+
+# Configuration Tarification
+tarification:
+  tarif-base-km: 2.5
+  tarif-minimum: 25.0
+
+# Configuration CORS
+cors:
+  allowed-origins: ${CORS_ORIGINS:http://localhost:4200,http://localhost:8100}
+  allowed-methods: GET,POST,PUT,DELETE,OPTIONS
+  allowed-headers: "*"
+
+# Configuration Swagger
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+
+# Logging
+logging:
+  level:
+    com.lanayago: INFO
+    org.springframework.security: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+server:
+  port: 8080
