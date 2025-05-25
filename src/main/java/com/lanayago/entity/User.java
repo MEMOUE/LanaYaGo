@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @EntityListeners(AuditingEntityListener.class)
 @Data
 @EqualsAndHashCode(of = "id")
-public abstract class User {
+public abstract class User {  // ✅ IMPORTANT: Garder abstract
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
