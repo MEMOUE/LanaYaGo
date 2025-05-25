@@ -37,6 +37,9 @@ public class OpenApiConfig {
 //						commandesTag(),
 //						vehiculesTag(),
 //						geolocationTag(),
+//						clientsTag(),
+//						chauffeursTag(),
+//						documentsTag(),
 //						adminTag()
 				))
 				.components(securityComponents())
@@ -51,12 +54,14 @@ public class OpenApiConfig {
                         
                         Cette API permet de gérer :
                         - 👤 **Authentification** des clients, chauffeurs et propriétaires
-                        - 📍 **Géolocalisation** temps réel
+                        - 📍 **Géolocalisation** temps réel avec Google Maps
                         - 📦 **Commandes** de transport avec géolocalisation
                         - 🚛 **Véhicules** et gestion de flotte
-                       
+                        - 👥 **Gestion des utilisateurs** (clients et chauffeurs)
+                        - 📄 **Documents** et validation administrative
                         - ⭐ **Évaluations** et système de notation
                         - 💰 **Tarification** dynamique
+                        - ⚙️ **Administration** et statistiques
                         
                         ## 🔐 Authentification
                         
@@ -69,16 +74,44 @@ public class OpenApiConfig {
                         
                         ## 👥 Types d'utilisateurs
                         
-                        - **CLIENT** : Peut créer et suivre des commandes
-                        - **CHAUFFEUR** : Peut accepter et traiter des commandes
-                        - **PROPRIETAIRE_VEHICULE** : Peut gérer sa flotte et ses chauffeurs
+                        - **CLIENT** : Peut créer et suivre des commandes, gérer son profil
+                        - **CHAUFFEUR** : Peut accepter et traiter des commandes, gérer sa disponibilité
+                        - **PROPRIETAIRE_VEHICULE** : Peut gérer sa flotte, ses chauffeurs et accéder aux fonctions admin
+                        
+                        ## 🔄 Flux d'utilisation
+                        
+                        ### Pour un client :
+                        1. S'inscrire comme CLIENT
+                        2. Créer une commande avec géolocalisation
+                        3. Suivre l'évolution de la commande
+                        4. Évaluer le service
+                        
+                        ### Pour un chauffeur :
+                        1. S'inscrire comme CHAUFFEUR
+                        2. Être assigné à un propriétaire de véhicule
+                        3. Accepter des commandes disponibles
+                        4. Mettre à jour sa position et le statut des commandes
+                        
+                        ### Pour un propriétaire :
+                        1. S'inscrire comme PROPRIETAIRE_VEHICULE
+                        2. Ajouter des véhicules à sa flotte
+                        3. Gérer ses chauffeurs
+                        4. Accéder aux statistiques et à l'administration
                         
                         ## 📱 Intégration Mobile
                         
                         Cette API est conçue pour être consommée par :
                         - Applications mobiles (iOS/Android)
-                        - Applications web (Angular/React)
-                        - Systèmes tiers
+                        - Applications web (Angular/React/Vue.js)
+                        - Systèmes tiers via REST
+                        - Notifications temps réel via WebSocket
+                        
+                        ## 🌐 WebSocket
+                        
+                        Connexion WebSocket disponible sur `/ws` pour :
+                        - Notifications de nouvelles commandes
+                        - Mises à jour de statut en temps réel
+                        - Suivi géolocalisation temps réel
                         """)
 				.version(appVersion)
 				.contact(apiContact())
@@ -110,38 +143,7 @@ public class OpenApiConfig {
 				.description("🌐 Serveur de production");
 	}
 
-	// Tags pour organiser les endpoints
-//	private Tag authTag() {
-//		return new Tag()
-//				.name("🔐 Authentification")
-//				.description("Inscription, connexion et gestion des utilisateurs");
-//	}
-//
-//	private Tag geolocationTag() {
-//		return new Tag()
-//				.name("📍 Géolocalisation")
-//				.description("Services de géolocalisation et cartographie");
-//	}
-//
-//	private Tag commandesTag() {
-//		return new Tag()
-//				.name("📦 Commandes")
-//				.description("Création, gestion et suivi des commandes de transport");
-//	}
-//
-//	private Tag vehiculesTag() {
-//		return new Tag()
-//				.name("🚛 Véhicules")
-//				.description("Gestion des véhicules et flottes");
-//	}
-//
-//
-//
-//	private Tag adminTag() {
-//		return new Tag()
-//				.name("⚙️ Administration")
-//				.description("Fonctionnalités d'administration (propriétaires de flotte)");
-//	}
+
 
 	// Configuration de la sécurité JWT
 	private Components securityComponents() {
@@ -163,6 +165,14 @@ public class OpenApiConfig {
                         3. Utilisez le token retourné dans le header Authorization
                         
                         Format : `Authorization: Bearer <votre-token>`
+                        
+                        **Durée de validité** : 24 heures
+                        **Refresh Token** : 7 jours
+                        
+                        **Exemple d'utilisation** :
+                        ```
+                        Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                        ```
                         """);
 	}
 

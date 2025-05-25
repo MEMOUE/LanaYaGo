@@ -14,38 +14,32 @@ spring:
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQL8Dialect
+        dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
         use_sql_comments: true
 
-  # Configuration pour les fichiers
   servlet:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
 
-# Configuration des API externes
 google:
   maps:
-    api-key: ${GOOGLE_MAPS_API_KEY:}
+    api-key: ${GOOGLE_MAPS_API_KEY:dummy-api-key-for-development}
 
-# Configuration JWT
 jwt:
-  secret: ${JWT_SECRET:lanayago-super-secret-key-2024-very-long-and-secure}
-  expiration: 86400000 # 24 heures
+  secret: ${JWT_SECRET:lanayago-super-secret-key-2024-very-long-and-secure-minimum-256-bits}
+  expiration: 86400000
 
-# Configuration Tarification
 tarification:
   tarif-base-km: 2.5
   tarif-minimum: 25.0
 
-# Configuration CORS
 cors:
   allowed-origins: ${CORS_ORIGINS:http://localhost:4200,http://localhost:8100}
   allowed-methods: GET,POST,PUT,DELETE,OPTIONS
   allowed-headers: "*"
 
-# Configuration Swagger
 springdoc:
   api-docs:
     path: /api-docs
@@ -53,7 +47,6 @@ springdoc:
     path: /swagger-ui.html
     operationsSorter: method
 
-# Logging
 logging:
   level:
     com.lanayago: INFO
@@ -63,3 +56,10 @@ logging:
 
 server:
   port: 8080
+
+
+# Ajouter ces configurations
+documents:
+  upload-dir: ${UPLOAD_DIR:./uploads}
+  max-file-size: 10MB
+  allowed-types: image/jpeg,image/png,application/pdf
