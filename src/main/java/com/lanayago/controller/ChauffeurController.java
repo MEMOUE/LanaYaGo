@@ -1,6 +1,5 @@
 package com.lanayago.controller;
 
-import com.lanayago.dto.CommandeDTO;
 import com.lanayago.dto.UserDTO;
 import com.lanayago.service.ChauffeurService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,36 +12,74 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/chauffeurs")
 @RequiredArgsConstructor
 @SecurityRequirement(name = "bearerAuth")
-@Tag(name = "Chauffeurs", description = "Fonctionnalités spécifiques aux chauffeurs")
+@Tag(name = "🚗 Gestion Chauffeurs", description = "Gestion des chauffeurs par les propriétaires de véhicules")
 public class ChauffeurController {
 
 	private final ChauffeurService chauffeurService;
 
-	@GetMapping("/{chauffeurId}/profil")
-	@Operation(summary = "Récupérer le profil du chauffeur")
-	@PreAuthorize("hasRole('CHAUFFEUR') and #chauffeurId == authentication.principal.id")
-	public ResponseEntity<UserDTO> getProfil(@PathVariable Long chauffeurId) {
-		return ResponseEntity.ok(chauffeurService.getProfilChauffeur(chauffeurId));
+	@PostMapping("/proprietaire/{proprietaireId}")
+	@Operation(
+			summary = "Créer un nouveau chauffeur",
+			description = "Le propriétaire crée un nouveau chauffeur pour son entreprise"
+	)
+	@PreAuthorize("hasRole('PROPRIETAIRE_VEHICULE') and #proprietaireId == authentication.principal.id")
+	public ResponseEntity<UserDTO> creerChauffeur(
+			@PathVariable Long proprietaireId,
+			@Valid @RequestBody ChauffeurService.ChauffeurDTO.CreateRequest request) {
+		return ResponseEntity.ok(chauffeurService.creerChauffeur(proprietaireId, request));
 	}
 
-	@PutMapping("/{chauffeurId}/profil")
-	@Operation(summary = "Mettre à jour le profil du chauffeur")
-	@PreAuthorize("hasRole('CHAUFFEUR') and #chauffeurId == authentication.principal.id")
-	public ResponseEntity<UserDTO> mettreAJourProfil(
+	@PutMapping("/proprietaire/{proprietaireId}/chauffeur/{chauffeurId}")
+	@Operation(
+			summary = "Mettre à jour un chauffeur",
+			description = "Le propriétaire met à jour les informations d'un de ses chauffeurs"
+	)
+	@PreAuthorize("hasRole('PROPRIETAIRE_VEHICULE') and #proprietaireId == authentication.principal.id")
+	public ResponseEntity<UserDTO> mettreAJourChauffeur(
+			@PathVariable Long proprietaireId,
 			@PathVariable Long chauffeurId,
-			@Valid @RequestBody UserDTO request) {
-		return ResponseEntity.ok(chauffeurService.mettreAJourProfil(chauffeurId, request));
+			@Valid @RequestBody ChauffeurService.ChauffeurDTO.CreateRequest request) {
+		return ResponseEntity.ok(chauffeurService.mettreAJourChauffeur(proprietaireId, chauffeurId, request));
+	}
+
+	@PutMapping("/proprietaire/{proprietaireId}/chauffeur/{chauffeurId}/vehicule/{vehiculeId}")
+	@Operation(
+			summary = "Affecter un véhicule à un chauffeur",
+			description = "Le propriétaire affecte un de ses véhicules à un de ses chauffeurs"
+	)
+	@PreAuthorize("hasRole('PROPRIETAIRE_VEHICULE') and #proprietaireId == authentication.principal.id")
+	public ResponseEntity<Void> affecterVehicule(
+			@PathVariable Long proprietaireId,
+			@PathVariable Long chauffeurId,
+			@PathVariable Long vehiculeId) {
+		chauffeurService.affecterVehicule(proprietaireId, chauffeurId, vehiculeId);
+		return ResponseEntity.ok().build();
+	}
+
+	@PutMapping("/proprietaire/{proprietaireId}/chauffeur/{chauffeurId}/liberer-vehicule")
+	@Operation(
+			summary = "Libérer le véhicule d'un chauffeur",
+			description = "Le propriétaire libère le véhicule actuellement affecté à un chauffeur"
+	)
+	@PreAuthorize("hasRole('PROPRIETAIRE_VEHICULE') and #proprietaireId == authentication.principal.id")
+	public ResponseEntity<Void> libererVehicule(
+			@PathVariable Long proprietaireId,
+			@PathVariable Long chauffeurId) {
+		chauffeurService.libererVehicule(proprietaireId, chauffeurId);
+		return ResponseEntity.ok().build();
 	}
 
 	@PutMapping("/{chauffeurId}/disponibilite")
-	@Operation(summary = "Changer la disponibilité du chauffeur")
-	@PreAuthorize("hasRole('CHAUFFEUR') and #chauffeurId == authentication.principal.id")
+	@Operation(
+			summary = "Changer la disponibilité d'un chauffeur",
+			description = "Le chauffeur ou le propriétaire change le statut de disponibilité"
+	)
+	@PreAuthorize("hasRole('CHAUFFEUR') and #chauffeurId == authentication.principal.id or hasRole('PROPRIETAIRE_VEHICULE')")
 	public ResponseEntity<Void> changerDisponibilite(
 			@PathVariable Long chauffeurId,
 			@RequestParam Boolean disponible) {
@@ -50,39 +87,38 @@ public class ChauffeurController {
 		return ResponseEntity.ok().build();
 	}
 
-	@GetMapping("/{chauffeurId}/courses")
-	@Operation(summary = "Récupérer l'historique des courses")
-	@PreAuthorize("hasRole('CHAUFFEUR') and #chauffeurId == authentication.principal.id")
-	public ResponseEntity<List<CommandeDTO.Response>> getHistoriqueCourses(
-			@PathVariable Long chauffeurId,
-			@RequestParam(defaultValue = "0") int page,
-			@RequestParam(defaultValue = "10") int size) {
-		return ResponseEntity.ok(chauffeurService.getHistoriqueCourses(chauffeurId, page, size));
-	}
-
-	@GetMapping("/{chauffeurId}/revenus")
-	@Operation(summary = "Récupérer les revenus du chauffeur")
-	@PreAuthorize("hasRole('CHAUFFEUR') and #chauffeurId == authentication.principal.id")
-	public ResponseEntity<Map<String, Object>> getRevenus(
-			@PathVariable Long chauffeurId,
-			@RequestParam(required = false) String periode) {
-		return ResponseEntity.ok(chauffeurService.getRevenus(chauffeurId, periode));
-	}
-
-	@GetMapping("/{chauffeurId}/statistiques")
-	@Operation(summary = "Récupérer les statistiques du chauffeur")
-	@PreAuthorize("hasRole('CHAUFFEUR') and #chauffeurId == authentication.principal.id")
-	public ResponseEntity<Map<String, Object>> getStatistiques(@PathVariable Long chauffeurId) {
-		return ResponseEntity.ok(chauffeurService.getStatistiquesChauffeur(chauffeurId));
-	}
-
-	@PostMapping("/{chauffeurId}/signalement")
-	@Operation(summary = "Signaler un problème")
-	@PreAuthorize("hasRole('CHAUFFEUR') and #chauffeurId == authentication.principal.id")
-	public ResponseEntity<Void> signalerProbleme(
-			@PathVariable Long chauffeurId,
-			@RequestBody Map<String, String> signalement) {
-		chauffeurService.signalerProbleme(chauffeurId, signalement);
+	@DeleteMapping("/proprietaire/{proprietaireId}/chauffeur/{chauffeurId}")
+	@Operation(
+			summary = "Supprimer un chauffeur",
+			description = "Le propriétaire désactive un de ses chauffeurs (préserve l'historique)"
+	)
+	@PreAuthorize("hasRole('PROPRIETAIRE_VEHICULE') and #proprietaireId == authentication.principal.id")
+	public ResponseEntity<Void> supprimerChauffeur(
+			@PathVariable Long proprietaireId,
+			@PathVariable Long chauffeurId) {
+		chauffeurService.supprimerChauffeur(proprietaireId, chauffeurId);
 		return ResponseEntity.ok().build();
+	}
+
+	// === ENDPOINTS DE CONSULTATION ===
+
+	@GetMapping("/proprietaire/{proprietaireId}")
+	@Operation(
+			summary = "Récupérer les chauffeurs d'un propriétaire",
+			description = "Liste de tous les chauffeurs appartenant à un propriétaire"
+	)
+	@PreAuthorize("hasRole('PROPRIETAIRE_VEHICULE') and #proprietaireId == authentication.principal.id")
+	public ResponseEntity<List<UserDTO>> getChauffeursProprietaire(@PathVariable Long proprietaireId) {
+		return ResponseEntity.ok(chauffeurService.getChauffeursProprietaire(proprietaireId));
+	}
+
+	@GetMapping("/disponibles")
+	@Operation(
+			summary = "Récupérer tous les chauffeurs disponibles",
+			description = "Liste des chauffeurs actuellement disponibles pour les commandes"
+	)
+	@PreAuthorize("hasRole('CLIENT') or hasRole('PROPRIETAIRE_VEHICULE')")
+	public ResponseEntity<List<UserDTO>> getChauffeursDisponibles() {
+		return ResponseEntity.ok(chauffeurService.getChauffeursDisponibles());
 	}
 }

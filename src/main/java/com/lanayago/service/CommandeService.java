@@ -1,25 +1,18 @@
 package com.lanayago.service;
 
 import com.lanayago.dto.CommandeDTO;
+import com.lanayago.dto.RechercheTransportDTO;
 import com.lanayago.dto.VehiculeDTO;
-import com.lanayago.entity.Chauffeur;
-import com.lanayago.entity.Client;
-import com.lanayago.entity.Commande;
-import com.lanayago.entity.Vehicule;
+import com.lanayago.entity.*;
 import com.lanayago.enums.StatutCommande;
-import com.lanayago.enums.TypeVehicule;
 import com.lanayago.exception.BusinessException;
-import com.lanayago.repository.CommandeRepository;
-import com.lanayago.repository.ClientRepository;
-import com.lanayago.repository.ChauffeurRepository;
-import com.lanayago.repository.VehiculeRepository;
+import com.lanayago.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -32,65 +25,95 @@ public class CommandeService {
 	private final ClientRepository clientRepository;
 	private final ChauffeurRepository chauffeurRepository;
 	private final VehiculeRepository vehiculeRepository;
-	private final TarificationService tarificationService;
-	private final GeolocationService geolocationService;
+	private final RechercheTransportRepository rechercheTransportRepository;
 	private final NotificationService notificationService;
 	private final UserMapperService userMapperService;
 
+	/**
+	 * Nouvelle méthode pour créer une commande à partir d'une recherche de transport
+	 */
 	@Transactional
-	public CommandeDTO.Response creerCommande(Long clientId, CommandeDTO.CreateRequest request) {
-		log.info("Création d'une nouvelle commande pour le client: {}", clientId);
+	public CommandeDTO.Response creerCommandeDepuisRecherche(
+			RechercheTransportDTO.DemandeTransportRequest request) {
 
-		Client client = clientRepository.findById(clientId)
-				.orElseThrow(() -> new BusinessException("Client non trouvé"));
+		log.info("Création d'une commande depuis la recherche: {}", request.getRechercheId());
 
-		// Validation des données
-		validerDonneesCommande(request);
+		// Récupérer la recherche
+		RechercheTransport recherche = rechercheTransportRepository.findById(request.getRechercheId())
+				.orElseThrow(() -> new BusinessException("Recherche de transport non trouvée"));
 
-		// Calcul de la distance
-		Double distance = geolocationService.calculerDistanceGoogleMaps(
-				request.getLatitudeDepart(), request.getLongitudeDepart(),
-				request.getLatitudeArrivee(), request.getLongitudeArrivee()
-		);
-
-		if (distance == null || distance <= 0) {
-			throw new BusinessException("Impossible de calculer la distance entre les deux points");
+		if (!recherche.getActive()) {
+			throw new BusinessException("Cette recherche n'est plus active");
 		}
 
-		// Détermination du type de véhicule nécessaire
-		TypeVehicule typeVehicule = determinerTypeVehicule(request.getPoidsMarchandise());
+		// Récupérer le chauffeur et vérifier sa disponibilité
+		Chauffeur chauffeur = chauffeurRepository.findById(request.getChauffeurId())
+				.orElseThrow(() -> new BusinessException("Chauffeur non trouvé"));
 
-		// Calcul du tarif
-		BigDecimal tarif = tarificationService.calculerTarif(request, distance, typeVehicule);
+		if (!chauffeur.getDisponible()) {
+			throw new BusinessException("Le chauffeur n'est plus disponible");
+		}
 
-		// Création de la commande
+		// Récupérer le véhicule et vérifier sa disponibilité
+		Vehicule vehicule = vehiculeRepository.findById(request.getVehiculeId())
+				.orElseThrow(() -> new BusinessException("Véhicule non trouvé"));
+
+		if (!vehicule.getDisponible()) {
+			throw new BusinessException("Le véhicule n'est plus disponible");
+		}
+
+		// Vérifier que le chauffeur correspond au véhicule
+		if (!chauffeur.getVehiculeActuel().getId().equals(vehicule.getId())) {
+			throw new BusinessException("Le chauffeur n'est pas assigné à ce véhicule");
+		}
+
+		// Créer la commande
 		Commande commande = new Commande();
-		commande.setClient(client);
-		commande.setLatitudeDepart(request.getLatitudeDepart());
-		commande.setLongitudeDepart(request.getLongitudeDepart());
-		commande.setAdresseDepart(request.getAdresseDepart());
-		commande.setLatitudeArrivee(request.getLatitudeArrivee());
-		commande.setLongitudeArrivee(request.getLongitudeArrivee());
-		commande.setAdresseArrivee(request.getAdresseArrivee());
-		commande.setPoidsMarchandise(request.getPoidsMarchandise());
-		commande.setVolumeMarchandise(request.getVolumeMarchandise());
-		commande.setDescriptionMarchandise(request.getDescriptionMarchandise());
-		commande.setUrgent(request.getUrgent());
-		commande.setDateRamassageSouhaitee(request.getDateRamassageSouhaitee());
-		commande.setDateLivraisonSouhaitee(request.getDateLivraisonSouhaitee());
-		commande.setDistance(distance);
-		commande.setTarifCalcule(tarif);
-		commande.setTarifFinal(tarif);
+		commande.setClient(recherche.getClient());
+		commande.setChauffeur(chauffeur);
+		commande.setVehicule(vehicule);
+
+		// Copier les données de la recherche
+		commande.setLatitudeDepart(recherche.getLatitudeDepart());
+		commande.setLongitudeDepart(recherche.getLongitudeDepart());
+		commande.setAdresseDepart(recherche.getAdresseDepart());
+		commande.setLatitudeArrivee(recherche.getLatitudeArrivee());
+		commande.setLongitudeArrivee(recherche.getLongitudeArrivee());
+		commande.setAdresseArrivee(recherche.getAdresseArrivee());
+		commande.setPoidsMarchandise(recherche.getPoidsMarchandise());
+		commande.setVolumeMarchandise(recherche.getVolumeMarchandise());
+		commande.setDescriptionMarchandise(recherche.getDescriptionMarchandise());
+		commande.setUrgent(recherche.getUrgent());
+		commande.setDateRamassageSouhaitee(recherche.getDateRamassageSouhaitee());
+		commande.setDateLivraisonSouhaitee(recherche.getDateLivraisonSouhaitee());
+		commande.setDistance(recherche.getDistance());
+		commande.setTarifCalcule(recherche.getTarifEstime());
+		commande.setTarifFinal(recherche.getTarifEstime());
+		commande.setStatut(StatutCommande.EN_ATTENTE);
+
+		// Instructions spéciales
+		if (request.getInstructionsSpeciales() != null) {
+			commande.setCommentaireClient(request.getInstructionsSpeciales());
+		}
 
 		commande = commandeRepository.save(commande);
 
-		// Notification aux chauffeurs disponibles
-		notifierChauffeursDisponibles(commande, request);
+		// Désactiver la recherche
+		recherche.setActive(false);
+		rechercheTransportRepository.save(recherche);
 
-		log.info("Commande créée avec succès: {} - Montant: {} €", commande.getId(), tarif);
+		// Notifier le chauffeur de la nouvelle commande
+		notificationService.notifierNouvelleCommande(List.of(chauffeur), commande);
+
+		log.info("Commande créée avec succès depuis la recherche: {} - Commande ID: {}",
+				request.getRechercheId(), commande.getId());
+
 		return mapToResponse(commande);
 	}
 
+	/**
+	 * Le chauffeur accepte la commande (après avoir vu la demande)
+	 */
 	@Transactional
 	public CommandeDTO.Response accepterCommande(Long commandeId, Long chauffeurId) {
 		log.info("Acceptation de la commande {} par le chauffeur {}", commandeId, chauffeurId);
@@ -105,31 +128,24 @@ public class CommandeService {
 		Chauffeur chauffeur = chauffeurRepository.findById(chauffeurId)
 				.orElseThrow(() -> new BusinessException("Chauffeur non trouvé"));
 
+		// Vérifier que c'est bien le chauffeur assigné à cette commande
+		if (!commande.getChauffeur().getId().equals(chauffeurId)) {
+			throw new BusinessException("Vous n'êtes pas le chauffeur assigné à cette commande");
+		}
+
 		if (!chauffeur.getDisponible()) {
-			throw new BusinessException("Le chauffeur n'est pas disponible");
+			throw new BusinessException("Vous n'êtes plus disponible");
 		}
 
-		// Vérification de la compatibilité véhicule/commande
-		if (chauffeur.getVehiculeActuel() == null) {
-			throw new BusinessException("Le chauffeur n'a pas de véhicule assigné");
-		}
-
-		if (!verifierCompatibiliteVehicule(chauffeur.getVehiculeActuel(), commande)) {
-			throw new BusinessException("Le véhicule du chauffeur n'est pas compatible avec cette commande");
-		}
-
-		// Affectation
-		commande.setChauffeur(chauffeur);
-		commande.setVehicule(chauffeur.getVehiculeActuel());
+		// Accepter la commande
 		commande.setStatut(StatutCommande.ACCEPTEE);
 
-		// Mise à jour de la disponibilité
+		// Réserver les ressources
 		chauffeur.setDisponible(false);
 		chauffeurRepository.save(chauffeur);
 
-		// Mise à jour de la disponibilité du véhicule
-		chauffeur.getVehiculeActuel().setDisponible(false);
-		vehiculeRepository.save(chauffeur.getVehiculeActuel());
+		commande.getVehicule().setDisponible(false);
+		vehiculeRepository.save(commande.getVehicule());
 
 		commande = commandeRepository.save(commande);
 
@@ -138,11 +154,15 @@ public class CommandeService {
 
 		log.info("Commande acceptée avec succès par le chauffeur {} {}",
 				chauffeur.getNom(), chauffeur.getPrenom());
+
 		return mapToResponse(commande);
 	}
 
+	/**
+	 * Le chauffeur refuse la commande
+	 */
 	@Transactional
-	public CommandeDTO.Response refuserCommande(Long commandeId, Long chauffeurId, String motifRefus) {
+	public void refuserCommande(Long commandeId, Long chauffeurId, String motifRefus) {
 		log.info("Refus de la commande {} par le chauffeur {}", commandeId, chauffeurId);
 
 		Commande commande = commandeRepository.findById(commandeId)
@@ -152,17 +172,25 @@ public class CommandeService {
 			throw new BusinessException("Cette commande ne peut plus être refusée");
 		}
 
-		Chauffeur chauffeur = chauffeurRepository.findById(chauffeurId)
-				.orElseThrow(() -> new BusinessException("Chauffeur non trouvé"));
+		// Vérifier que c'est bien le chauffeur assigné
+		if (!commande.getChauffeur().getId().equals(chauffeurId)) {
+			throw new BusinessException("Vous n'êtes pas le chauffeur assigné à cette commande");
+		}
 
-		// Logique de refus - peut être enregistrée pour analytics
+		// Marquer la commande comme refusée
+		commande.setStatut(StatutCommande.REFUSEE);
+		commande.setCommentaireChauffeur("Refusée: " + motifRefus);
+
+		// Libérer les ressources
+		libererRessources(commande);
+
+		commandeRepository.save(commande);
+
+		// Notifier le client du refus
+		notificationService.notifierChangementStatut(commande);
+
 		log.info("Commande {} refusée par chauffeur {} - Motif: {}",
 				commandeId, chauffeurId, motifRefus);
-
-		// La commande reste en attente pour d'autres chauffeurs
-		// Notification au client qu'un chauffeur a refusé (optionnel)
-
-		return mapToResponse(commande);
 	}
 
 	@Transactional
@@ -188,7 +216,7 @@ public class CommandeService {
 				commande.setDateRamassageEffective(LocalDateTime.now());
 				break;
 			case RAMASSAGE:
-				// Commande en cours de ramassage
+				// Chauffeur arrivé au point de ramassage
 				break;
 			case EN_LIVRAISON:
 				// Marchandise chargée, en route vers destination
@@ -208,79 +236,8 @@ public class CommandeService {
 
 		log.info("Statut de la commande {} changé de {} vers {}",
 				commandeId, ancienStatut.getLibelle(), nouveauStatut.getLibelle());
+
 		return mapToResponse(commande);
-	}
-
-	@Transactional
-	public CommandeDTO.Response annulerCommande(Long commandeId, String motifAnnulation) {
-		Commande commande = commandeRepository.findById(commandeId)
-				.orElseThrow(() -> new BusinessException("Commande non trouvée"));
-
-		if (commande.getStatut() == StatutCommande.LIVREE) {
-			throw new BusinessException("Impossible d'annuler une commande déjà livrée");
-		}
-
-		if (commande.getStatut() == StatutCommande.EN_LIVRAISON) {
-			throw new BusinessException("Impossible d'annuler une commande en cours de livraison");
-		}
-
-		commande.setStatut(StatutCommande.ANNULEE);
-		commande.setCommentaireClient(motifAnnulation);
-
-		// Libérer les ressources si la commande était acceptée
-		if (commande.getChauffeur() != null) {
-			libererRessources(commande);
-		}
-
-		commande = commandeRepository.save(commande);
-		notificationService.notifierChangementStatut(commande);
-
-		log.info("Commande {} annulée - Motif: {}", commandeId, motifAnnulation);
-		return mapToResponse(commande);
-	}
-
-	@Transactional(readOnly = true)
-	public List<CommandeDTO.Response> getCommandesClient(Long clientId) {
-		return commandeRepository.findByClientIdOrderByDateCreationDesc(clientId)
-				.stream()
-				.map(this::mapToResponse)
-				.toList();
-	}
-
-	@Transactional(readOnly = true)
-	public List<CommandeDTO.Response> getCommandesChauffeur(Long chauffeurId) {
-		return commandeRepository.findByChauffeurIdOrderByDateCreationDesc(chauffeurId)
-				.stream()
-				.map(this::mapToResponse)
-				.toList();
-	}
-
-	@Transactional(readOnly = true)
-	public CommandeDTO.Response getCommandeById(Long commandeId) {
-		Commande commande = commandeRepository.findById(commandeId)
-				.orElseThrow(() -> new BusinessException("Commande non trouvée"));
-		return mapToResponse(commande);
-	}
-
-	@Transactional(readOnly = true)
-	public List<CommandeDTO.Response> getCommandesParStatut(StatutCommande statut) {
-		return commandeRepository.findByStatutOrderByDateCreationAsc(statut)
-				.stream()
-				.map(this::mapToResponse)
-				.toList();
-	}
-
-	@Transactional(readOnly = true)
-	public List<CommandeDTO.Response> getCommandesEnAttente() {
-		return getCommandesParStatut(StatutCommande.EN_ATTENTE);
-	}
-
-	@Transactional(readOnly = true)
-	public List<CommandeDTO.Response> getCommandesProprietaire(Long proprietaireId) {
-		return commandeRepository.findByProprietaireId(proprietaireId)
-				.stream()
-				.map(this::mapToResponse)
-				.toList();
 	}
 
 	@Transactional
@@ -328,83 +285,43 @@ public class CommandeService {
 		return mapToResponse(commande);
 	}
 
+	// Méthodes de lecture existantes
 	@Transactional(readOnly = true)
-	public BigDecimal getChiffreAffaireChauffeur(Long chauffeurId) {
-		BigDecimal chiffre = BigDecimal.valueOf(commandeRepository.getChiffreAffaireChauffeur(chauffeurId));
-		return chiffre != null ? chiffre : BigDecimal.ZERO;
+	public List<CommandeDTO.Response> getCommandesClient(Long clientId) {
+		return commandeRepository.findByClientIdOrderByDateCreationDesc(clientId)
+				.stream()
+				.map(this::mapToResponse)
+				.toList();
 	}
 
 	@Transactional(readOnly = true)
-	public long getNombreCommandesParStatut(StatutCommande statut) {
-		return commandeRepository.countByStatut(statut);
+	public List<CommandeDTO.Response> getCommandesChauffeur(Long chauffeurId) {
+		return commandeRepository.findByChauffeurIdOrderByDateCreationDesc(chauffeurId)
+				.stream()
+				.map(this::mapToResponse)
+				.toList();
+	}
+
+	@Transactional(readOnly = true)
+	public CommandeDTO.Response getCommandeById(Long commandeId) {
+		Commande commande = commandeRepository.findById(commandeId)
+				.orElseThrow(() -> new BusinessException("Commande non trouvée"));
+		return mapToResponse(commande);
+	}
+
+	@Transactional(readOnly = true)
+	public List<CommandeDTO.Response> getCommandesParStatut(StatutCommande statut) {
+		return commandeRepository.findByStatutOrderByDateCreationAsc(statut)
+				.stream()
+				.map(this::mapToResponse)
+				.toList();
 	}
 
 	// =================== MÉTHODES PRIVÉES ===================
 
-	private void validerDonneesCommande(CommandeDTO.CreateRequest request) {
-		if (request.getLatitudeDepart().equals(request.getLatitudeArrivee()) &&
-				request.getLongitudeDepart().equals(request.getLongitudeArrivee())) {
-			throw new BusinessException("L'adresse de départ et d'arrivée ne peuvent pas être identiques");
-		}
-
-		if (request.getDateRamassageSouhaitee() != null &&
-				request.getDateRamassageSouhaitee().isBefore(LocalDateTime.now())) {
-			throw new BusinessException("La date de ramassage ne peut pas être dans le passé");
-		}
-
-		if (request.getDateLivraisonSouhaitee() != null &&
-				request.getDateRamassageSouhaitee() != null &&
-				request.getDateLivraisonSouhaitee().isBefore(request.getDateRamassageSouhaitee())) {
-			throw new BusinessException("La date de livraison ne peut pas être antérieure à la date de ramassage");
-		}
-	}
-
-	private void notifierChauffeursDisponibles(Commande commande, CommandeDTO.CreateRequest request) {
-		try {
-			List<Chauffeur> chauffeursProches = geolocationService.trouverChauffeursProches(
-					request.getLatitudeDepart(), request.getLongitudeDepart(), 50.0
-			);
-
-			// Filtrer les chauffeurs avec véhicules compatibles
-			TypeVehicule typeRequis = determinerTypeVehicule(request.getPoidsMarchandise());
-			List<Chauffeur> chauffeursCompatibles = chauffeursProches.stream()
-					.filter(c -> c.getVehiculeActuel() != null &&
-							c.getVehiculeActuel().getTypeVehicule() == typeRequis)
-					.toList();
-
-			if (!chauffeursCompatibles.isEmpty()) {
-				notificationService.notifierNouvelleCommande(chauffeursCompatibles, commande);
-				log.info("{} chauffeurs notifiés pour la commande {}",
-						chauffeursCompatibles.size(), commande.getId());
-			} else {
-				log.warn("Aucun chauffeur compatible trouvé pour la commande {}", commande.getId());
-			}
-		} catch (Exception e) {
-			log.error("Erreur lors de la notification des chauffeurs pour la commande {}",
-					commande.getId(), e);
-		}
-	}
-
-	private boolean verifierCompatibiliteVehicule(Vehicule vehicule, Commande commande) {
-		// Vérifier la capacité de poids
-		BigDecimal poidsCommandeEnTonnes = commande.getPoidsMarchandise().divide(BigDecimal.valueOf(1000), 3, RoundingMode.HALF_UP);
-		if (vehicule.getCapacitePoids().compareTo(poidsCommandeEnTonnes) < 0) {
-			return false;
-		}
-
-		// Vérifier la capacité de volume si spécifiée
-		if (commande.getVolumeMarchandise() != null && vehicule.getCapaciteVolume() != null) {
-			if (vehicule.getCapaciteVolume().compareTo(commande.getVolumeMarchandise()) < 0) {
-				return false;
-			}
-		}
-
-		return true;
-	}
-
 	private boolean isTransitionValide(StatutCommande ancien, StatutCommande nouveau) {
 		return switch (ancien) {
-			case EN_ATTENTE -> nouveau == StatutCommande.ACCEPTEE || nouveau == StatutCommande.ANNULEE;
+			case EN_ATTENTE -> nouveau == StatutCommande.ACCEPTEE || nouveau == StatutCommande.REFUSEE || nouveau == StatutCommande.ANNULEE;
 			case ACCEPTEE -> nouveau == StatutCommande.EN_COURS || nouveau == StatutCommande.ANNULEE;
 			case EN_COURS -> nouveau == StatutCommande.RAMASSAGE || nouveau == StatutCommande.ANNULEE;
 			case RAMASSAGE -> nouveau == StatutCommande.EN_LIVRAISON;
@@ -462,7 +379,7 @@ public class CommandeService {
 		}
 
 		if (nombreNotes > 0) {
-			BigDecimal noteMoyenne = sommeTotale.divide(BigDecimal.valueOf(nombreNotes), 2, RoundingMode.HALF_UP);
+			BigDecimal noteMoyenne = sommeTotale.divide(BigDecimal.valueOf(nombreNotes), 2, java.math.RoundingMode.HALF_UP);
 			chauffeurRepository.findById(chauffeurId).ifPresent(chauffeur -> {
 				chauffeur.setNoteMoyenne(noteMoyenne);
 				chauffeurRepository.save(chauffeur);
@@ -483,22 +400,12 @@ public class CommandeService {
 		}
 
 		if (nombreNotes > 0) {
-			BigDecimal noteMoyenne = sommeTotale.divide(BigDecimal.valueOf(nombreNotes), 2, RoundingMode.HALF_UP);
+			BigDecimal noteMoyenne = sommeTotale.divide(BigDecimal.valueOf(nombreNotes), 2, java.math.RoundingMode.HALF_UP);
 			clientRepository.findById(clientId).ifPresent(client -> {
 				client.setNoteMoyenne(noteMoyenne);
 				clientRepository.save(client);
 			});
 		}
-	}
-
-	private TypeVehicule determinerTypeVehicule(BigDecimal poids) {
-		// Conversion kg en tonnes
-		double poidsEnTonnes = poids.doubleValue() / 1000.0;
-
-		if (poidsEnTonnes <= 3.5) return TypeVehicule.CAMIONNETTE;
-		if (poidsEnTonnes <= 7.5) return TypeVehicule.CAMION_LEGER;
-		if (poidsEnTonnes <= 19.0) return TypeVehicule.CAMION_MOYEN;
-		return TypeVehicule.CAMION_LOURD;
 	}
 
 	private CommandeDTO.Response mapToResponse(Commande commande) {
@@ -567,5 +474,9 @@ public class CommandeService {
 		}
 
 		return dto;
+	}
+
+	public List<CommandeDTO.Response> getCommandesProprietaire(Long proprietaireId) {
+		return List.of();
 	}
 }

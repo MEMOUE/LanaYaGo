@@ -1,11 +1,9 @@
 package com.lanayago.dto;
 
-import com.lanayago.enums.TypeUtilisateur;
 import lombok.Data;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public class AuthDTO {
@@ -42,17 +40,37 @@ public class AuthDTO {
 		@Size(min = 6, message = "Le mot de passe doit contenir au moins 6 caractères")
 		private String motDePasse;
 
-		@NotNull(message = "Le type d'utilisateur est obligatoire")
-		private TypeUtilisateur typeUtilisateur;
-
-		// Champs spécifiques selon le type
+		// Adresse du client (optionnelle à l'inscription)
 		private String adresse;
 		private String ville;
 		private String codePostal;
-		private String numeroPermis;
+	}
+
+	@Data
+	public static class DemandeProprietaireRequest {
+		@NotBlank(message = "Le nom de l'entreprise est obligatoire")
+		@Size(max = 150, message = "Le nom de l'entreprise ne peut pas dépasser 150 caractères")
 		private String nomEntreprise;
+
+		@Size(max = 14, message = "Le numéro SIRET ne peut pas dépasser 14 caractères")
 		private String numeroSiret;
-		private Long proprietaireId;
+
+		@NotBlank(message = "L'adresse de l'entreprise est obligatoire")
+		@Size(max = 255, message = "L'adresse ne peut pas dépasser 255 caractères")
+		private String adresseEntreprise;
+
+		@NotBlank(message = "La ville est obligatoire")
+		@Size(max = 100, message = "La ville ne peut pas dépasser 100 caractères")
+		private String villeEntreprise;
+
+		@NotBlank(message = "Le code postal est obligatoire")
+		@Size(max = 10, message = "Le code postal ne peut pas dépasser 10 caractères")
+		private String codePostalEntreprise;
+
+		// URLs des documents (seront gérées par upload séparé)
+		private String pieceIdentiteUrl;
+		private String extraitUrl;
+		private String justificatifAdresseUrl;
 	}
 
 	@Data
@@ -61,5 +79,6 @@ public class AuthDTO {
 		private String refreshToken;
 		private UserDTO user;
 		private Long expiresIn;
+		private Boolean peutDemanderProprietaire; // Indique si l'utilisateur peut faire une demande
 	}
 }

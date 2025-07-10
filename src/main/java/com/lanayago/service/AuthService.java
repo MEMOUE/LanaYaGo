@@ -3,11 +3,11 @@ package com.lanayago.service;
 import com.lanayago.dto.AuthDTO;
 import com.lanayago.dto.UserDTO;
 import com.lanayago.entity.Client;
-import com.lanayago.entity.Chauffeur;
-import com.lanayago.entity.ProprietaireVehicule;
 import com.lanayago.entity.User;
+import com.lanayago.enums.StatutDemandeProprietaire;
 import com.lanayago.enums.TypeUtilisateur;
 import com.lanayago.exception.BusinessException;
+import com.lanayago.repository.DemandeProprietaireRepository;
 import com.lanayago.repository.UserRepository;
 import com.lanayago.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
@@ -19,12 +19,15 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Arrays;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AuthService {
 
 	private final UserRepository userRepository;
+	private final DemandeProprietaireRepository demandeProprietaireRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtTokenProvider jwtTokenProvider;
 	private final AuthenticationManager authenticationManager;
@@ -43,24 +46,33 @@ public class AuthService {
 			throw new BusinessException("Un utilisateur avec ce téléphone existe déjà");
 		}
 
-		// Création de l'utilisateur selon le type
-		User user = createUserByType(request);
-		user.setMotDePasse(passwordEncoder.encode(request.getMotDePasse()));
+		// Création du client (tous les utilisateurs s'inscrivent comme clients)
+		Client client = new Client();
+		client.setNom(request.getNom());
+		client.setPrenom(request.getPrenom());
+		client.setEmail(request.getEmail());
+		client.setTelephone(request.getTelephone());
+		client.setMotDePasse(passwordEncoder.encode(request.getMotDePasse()));
+		client.setTypeUtilisateur(TypeUtilisateur.CLIENT);
+		client.setAdresse(request.getAdresse());
+		client.setVille(request.getVille());
+		client.setCodePostal(request.getCodePostal());
 
-		user = userRepository.save(user);
-		log.info("Utilisateur créé avec succès: {}", user.getId());
+		client = (Client) userRepository.save(client);
+		log.info("Client créé avec succès: {}", client.getId());
 
 		// Génération des tokens
-		String token = jwtTokenProvider.createToken(user.getEmail(), user.getTypeUtilisateur());
-		String refreshToken = jwtTokenProvider.createRefreshToken(user.getEmail());
+		String token = jwtTokenProvider.createToken(client.getEmail(), client.getTypeUtilisateur());
+		String refreshToken = jwtTokenProvider.createRefreshToken(client.getEmail());
 
-		UserDTO userDTO = userMapperService.toDTO(user);
+		UserDTO userDTO = userMapperService.toDTO(client);
 
 		AuthDTO.AuthResponse response = new AuthDTO.AuthResponse();
 		response.setToken(token);
 		response.setRefreshToken(refreshToken);
 		response.setUser(userDTO);
 		response.setExpiresIn(jwtTokenProvider.getTokenValidityInMilliseconds());
+		response.setPeutDemanderProprietaire(peutDemanderProprietaire(client.getId()));
 
 		return response;
 	}
@@ -87,41 +99,29 @@ public class AuthService {
 		response.setRefreshToken(refreshToken);
 		response.setUser(userDTO);
 		response.setExpiresIn(jwtTokenProvider.getTokenValidityInMilliseconds());
+		response.setPeutDemanderProprietaire(peutDemanderProprietaire(user.getId()));
 
 		log.info("Connexion réussie pour l'utilisateur: {}", user.getId());
 		return response;
 	}
 
-	private User createUserByType(AuthDTO.RegisterRequest request) {
-		User user = switch (request.getTypeUtilisateur()) {
-			case CLIENT -> {
-				Client client = new Client();
-				client.setAdresse(request.getAdresse());
-				client.setVille(request.getVille());
-				client.setCodePostal(request.getCodePostal());
-				yield client;
-			}
-			case CHAUFFEUR -> {
-				Chauffeur chauffeur = new Chauffeur();
-				chauffeur.setNumeroPermis(request.getNumeroPermis());
-				// TODO: Gérer l'affectation du propriétaire
-				yield chauffeur;
-			}
-			case PROPRIETAIRE_VEHICULE -> {
-				ProprietaireVehicule proprietaire = new ProprietaireVehicule();
-				proprietaire.setNomEntreprise(request.getNomEntreprise());
-				proprietaire.setNumeroSiret(request.getNumeroSiret());
-				yield proprietaire;
-			}
-		};
+	/**
+	 * Vérifie si un utilisateur peut faire une demande pour devenir propriétaire
+	 */
+	private boolean peutDemanderProprietaire(Long userId) {
+		// L'utilisateur ne peut pas demander s'il a déjà une demande en cours ou approuvée
+		return !demandeProprietaireRepository.existsByUserIdAndStatutIn(
+				userId,
+				Arrays.asList(
+						StatutDemandeProprietaire.EN_ATTENTE,
+						StatutDemandeProprietaire.EN_REVISION,
+						StatutDemandeProprietaire.APPROUVEE
+				)
+		);
+	}
 
-		// Propriétés communes
-		user.setNom(request.getNom());
-		user.setPrenom(request.getPrenom());
-		user.setEmail(request.getEmail());
-		user.setTelephone(request.getTelephone());
-		user.setTypeUtilisateur(request.getTypeUtilisateur());
-
-		return user;
+	@Transactional(readOnly = true)
+	public Boolean verifierStatutDemandeProprietaire(Long userId) {
+		return peutDemanderProprietaire(userId);
 	}
 }

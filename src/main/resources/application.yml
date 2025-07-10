@@ -14,52 +14,94 @@ spring:
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQLDialect
+        dialect: org.hibernate.dialect.MySQL8Dialect
         format_sql: true
         use_sql_comments: true
 
+  # Configuration pour les fichiers
   servlet:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
 
+  # Configuration des tâches planifiées
+  task:
+    scheduling:
+      enabled: true
+
+# Configuration des API externes
 google:
   maps:
-    api-key: ${GOOGLE_MAPS_API_KEY:dummy-api-key-for-development}
+    api-key: ${GOOGLE_MAPS_API_KEY:}
 
+# Configuration JWT
 jwt:
-  secret: ${JWT_SECRET:lanayago-super-secret-key-2024-very-long-and-secure-minimum-256-bits}
-  expiration: 86400000
+  secret: ${JWT_SECRET:lanayago-super-secret-key-2024-very-long-and-secure}
+  expiration: 86400000 # 24 heures
 
+# Configuration Tarification
 tarification:
   tarif-base-km: 2.5
   tarif-minimum: 25.0
 
+# Configuration Upload de fichiers
+file:
+  upload:
+    dir: ${FILE_UPLOAD_DIR:uploads}
+  max-size: 10485760 # 10MB
+
+# Configuration CORS
 cors:
-  allowed-origins: ${CORS_ORIGINS:http://localhost:4200,http://localhost:8100}
+  allowed-origins: ${CORS_ORIGINS:http://localhost:4200,http://localhost:8100,http://localhost:3000}
   allowed-methods: GET,POST,PUT,DELETE,OPTIONS
   allowed-headers: "*"
 
+# Configuration Swagger
 springdoc:
   api-docs:
     path: /api-docs
   swagger-ui:
     path: /swagger-ui.html
     operationsSorter: method
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
 
+# Configuration des recherches temps réel
+recherche-transport:
+  duree-validite-minutes: 30 # Durée de validité d'une recherche active
+  frequence-nettoyage-minutes: 15 # Fréquence de nettoyage des recherches expirées
+  rayon-recherche-defaut-km: 50 # Rayon de recherche par défaut
+
+# Configuration des notifications
+notifications:
+  websocket:
+    enabled: true
+  email:
+    enabled: ${EMAIL_NOTIFICATIONS_ENABLED:false}
+  sms:
+    enabled: ${SMS_NOTIFICATIONS_ENABLED:false}
+
+# Configuration de géolocalisation
+geolocalisation:
+  vitesse-moyenne-kmh: 40 # Vitesse moyenne pour calculs d'ETA
+  precision-gps-metres: 100 # Précision GPS acceptable
+
+# Logging
 logging:
   level:
     com.lanayago: INFO
     org.springframework.security: WARN
+    org.springframework.web.socket: INFO
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/lanayago.log
 
+# Configuration du serveur
 server:
   port: 8080
-
-
-# Ajouter ces configurations
-documents:
-  upload-dir: ${UPLOAD_DIR:./uploads}
-  max-file-size: 10MB
-  allowed-types: image/jpeg,image/png,application/pdf
+  servlet:
+    context-path: ""
+  compression:
+    enabled: true
+    min-response-size: 1024
