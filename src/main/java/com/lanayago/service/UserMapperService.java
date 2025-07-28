@@ -5,10 +5,14 @@ import com.lanayago.entity.Client;
 import com.lanayago.entity.Chauffeur;
 import com.lanayago.entity.ProprietaireVehicule;
 import com.lanayago.entity.User;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class UserMapperService {
+
+	private final FileStorageService fileStorageService;
 
 	public UserDTO toDTO(User user) {
 		UserDTO dto = new UserDTO();
@@ -36,6 +40,16 @@ public class UserMapperService {
 		} else if (user instanceof ProprietaireVehicule proprietaire) {
 			dto.setNomEntreprise(proprietaire.getNomEntreprise());
 			dto.setNumeroSiret(proprietaire.getNumeroSiret());
+
+			// ✅ NOUVEAUX CHAMPS MAPPÉS
+			// Convertir les chemins relatifs en URLs publiques
+			if (proprietaire.getPhotoUrl() != null && !proprietaire.getPhotoUrl().isEmpty()) {
+				dto.setProprietairePhotoUrl(fileStorageService.getFileUrl(proprietaire.getPhotoUrl()));
+			}
+
+			if (proprietaire.getCarteIdentiteUrl() != null && !proprietaire.getCarteIdentiteUrl().isEmpty()) {
+				dto.setCarteIdentiteUrl(fileStorageService.getFileUrl(proprietaire.getCarteIdentiteUrl()));
+			}
 		}
 
 		return dto;

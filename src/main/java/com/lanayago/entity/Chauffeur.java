@@ -45,4 +45,11 @@ public class Chauffeur extends User {
 
 	@Column(nullable = false)
 	private Integer nombreCourses = 0;
+
+	// ✅ NOUVEAUX ATTRIBUTS AJOUTÉS POUR CHAUFFEUR
+	@Column(length = 500)
+	private String photoUrl; // Chemin vers la photo du chauffeur
+
+	@Column(length = 500)
+	private String carteIdentiteUrl; // Chemin vers la photo de la carte d'identité
 }

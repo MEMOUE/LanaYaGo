@@ -26,4 +26,11 @@ public class ProprietaireVehicule extends User {
 
 	@OneToMany(mappedBy = "proprietaire", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
 	private List<Chauffeur> chauffeurs;
+
+	// ✅ NOUVEAUX ATTRIBUTS AJOUTÉS
+	@Column(length = 500)
+	private String photoUrl; // Chemin vers la photo du propriétaire
+
+	@Column(length = 500)
+	private String carteIdentiteUrl; // Chemin vers la photo de la carte d'identité
 }

@@ -20,6 +20,7 @@ public class VehiculeService {
 
 	private final VehiculeRepository vehiculeRepository;
 	private final UserRepository userRepository;
+	private final UserMapperService userMapperService; // ✅ INJECTION AJOUTÉE
 
 	@Transactional
 	public VehiculeDTO.Response ajouterVehicule(Long proprietaireId, VehiculeDTO.CreateRequest request) {
@@ -94,7 +95,8 @@ public class VehiculeService {
 		response.setPhotoUrl(vehicule.getPhotoUrl());
 
 		if (vehicule.getProprietaire() != null) {
-			response.setProprietaire(new UserMapperService().toDTO(vehicule.getProprietaire()));
+			// ✅ CORRECTION: Utilisation du service injecté
+			response.setProprietaire(userMapperService.toDTO(vehicule.getProprietaire()));
 		}
 
 		return response;

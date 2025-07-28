@@ -53,6 +53,15 @@ public class SecurityConfig {
 						.requestMatchers("/api/demandes-proprietaire/*/documents/**").hasRole("CLIENT")
 						.requestMatchers("/api/demandes-proprietaire/admin/**").hasRole("ADMIN")
 
+						// ✅ NOUVEAU SYSTÈME UNIFIÉ DE PHOTOS
+						.requestMatchers("/api/photos/**").hasAnyRole("PROPRIETAIRE_VEHICULE", "CHAUFFEUR", "CLIENT")
+
+						// 🔄 ANCIENS ENDPOINTS (pour rétrocompatibilité - à supprimer plus tard)
+						.requestMatchers("/api/proprietaires/*/photo").hasRole("PROPRIETAIRE_VEHICULE")
+						.requestMatchers("/api/proprietaires/*/carte-identite").hasRole("PROPRIETAIRE_VEHICULE")
+						.requestMatchers("/api/chauffeurs/*/photo").hasAnyRole("CHAUFFEUR", "PROPRIETAIRE_VEHICULE", "CLIENT")
+						.requestMatchers("/api/chauffeurs/*/carte-identite").hasAnyRole("CHAUFFEUR", "PROPRIETAIRE_VEHICULE")
+
 						// === RECHERCHE ET TRANSPORT ===
 						.requestMatchers("/api/recherche-transport/client/**").hasRole("CLIENT")
 						.requestMatchers("/api/recherche-transport/vehicules-disponibles").hasRole("CLIENT")

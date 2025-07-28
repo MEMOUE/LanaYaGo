@@ -28,4 +28,8 @@ public class UserDTO {
 	private Boolean disponible;
 	private String nomEntreprise;
 	private String numeroSiret;
+
+	// ✅ NOUVEAUX CHAMPS POUR PROPRIETAIRE_VEHICULE
+	private String proprietairePhotoUrl; // URL de la photo du propriétaire
+	private String carteIdentiteUrl; // URL de la carte d'identité
 }
